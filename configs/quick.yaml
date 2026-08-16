@@ -1,0 +1,43 @@
+run:
+  output_dir: results/quick
+  activity_seed: 20260816
+  communication_seed: 20260817
+  num_tuning_samples: 12
+  num_evaluation_samples: 24
+
+system:
+  N: 100
+  M: 4
+  S: 5
+  R: 40.0
+  pilot_lengths: [20, 25, 30]
+  snr_db: [8, 12, 16]
+
+activity:
+  V: 2
+  kappa: 3.0
+  D: 20.0
+  exact_sparsity: true
+  max_attempts: 100000
+
+correlation:
+  rho: 7.0
+  U: 20.0
+
+algorithms:
+  gamma_init: 0.1
+  sbl_max_iter: 150
+  sbl_tol: 1.0e-4
+  cosamp_max_iter: 30
+  cosamp_tol: 1.0e-6
+
+tuning:
+  reference_snr_db: 12
+  reference_pilot_length: 25
+  alpha_values: [0.0, 4.0, 8.0, 12.0]
+  beta_values: [0.05, 0.10, 0.15]
+  num_thresholds: 40
+
+evaluation:
+  gamma_distribution_samples: 12
+  convergence_sample_offset: 0

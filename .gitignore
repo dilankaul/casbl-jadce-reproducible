@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+.ipynb_checkpoints/
+.DS_Store
+*.log
+build/
+dist/
+*.egg-info/
+
+# Generated artifacts can be committed deliberately after a completed run.
+results/*
+!results/README.md
+figures/*
+!figures/README.md
+data/generated/*
+!data/generated/README.md
