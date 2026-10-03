@@ -70,3 +70,22 @@ figures:
   probability_resolution: 301
   probability_alpha: 0.55
   probability_levels: 128
+  # Overrides apply only to the figure with this output filename (without extension).
+  # Empty mappings keep the shared font defaults.
+  styles:
+    01_activity_kappa_calibration: {}
+    02_activity_realization_tuning_0000_probability_field: {}
+    02_activity_realized_s_distribution: {}
+    03_pilot_cross_correlation: {}
+    04_correlation_matrix: {}
+    05_alpha_beta_f1: {}
+    06_casbl_threshold: {}
+    06_sbl_threshold: {}
+    07_casbl_gamma_distribution: {}
+    07_sbl_gamma_distribution: {}
+    08_convergence_nmse: {}
+    09_f1_vs_snr: {}
+    09_nmse_vs_snr: {}
+    09_f1_vs_pilot_length: {}
+    09_nmse_vs_pilot_length: {}
+    09_runtime_vs_snr: {}

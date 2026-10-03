@@ -45,6 +45,7 @@ suffix = "_probability_field" if show_probability_field else "_plain"
 stem = out / "figures" / "activity_previews" / f"preview_D{D:g}_kappa{kappa:g}_sample{a.sample:04d}{suffix}"
 paths = plot_activity_sample(
     sample,
+    cfg=cfg,
     R=float(sys["R"]), D=D, kappa=kappa, stem=stem, formats=a.format,
     show_event_radius=not a.hide_event_radius,
     show_probability_field=show_probability_field,

@@ -132,3 +132,64 @@ def test_probability_contours_start_at_zero_and_colormap_zero_is_white(monkeypat
     assert captured["norm"].vmax == 1.0
     assert np.allclose(captured["cmap"](0.0)[:3], [1.0, 1.0, 1.0])
 
+
+
+def test_selected_realization_exports_pdf_with_native_truetype_fonts(tmp_path):
+    import numpy as np
+    import matplotlib as mpl
+    from casbl_jadce.activity_model import ActivitySample
+    from casbl_jadce.dataset import save_activity_samples
+    from casbl_jadce.plotting import plot_activity_realization
+
+    sample = ActivitySample(
+        a=np.array([True, False]),
+        device_locations=np.array([[0.0, 0.0], [8.0, 0.0]]),
+        event_locations=np.array([[0.0, 0.0]]),
+        activation_probabilities=np.array([1.0, 0.1]),
+    )
+    save_activity_samples(tmp_path / "activity" / "tuning_activity.npz", [sample])
+    cfg = {
+        "run": {"output_dir": str(tmp_path)},
+        "system": {"R": 20.0},
+        "activity": {"D": 10.0, "kappa": 3.0},
+    }
+    assert not mpl.rcParams["text.usetex"]
+    paths = plot_activity_realization(cfg, formats="both")
+    assert [p.suffix for p in paths] == [".png", ".pdf"]
+    assert all(p.exists() for p in paths)
+    pdf = paths[1].read_bytes()
+    assert pdf.startswith(b"%PDF-")
+    assert b"/Subtype /CIDFontType2" in pdf
+    assert b"/FontFile2" in pdf
+    assert b"/Subtype /Type3" not in pdf
+
+
+def test_per_figure_font_overrides_are_isolated(tmp_path):
+    from casbl_jadce.plotting import plt, _save
+
+    defaults = plt.rcParams.copy()
+    cfg = {"figures": {
+        "style": {"axes.labelsize": 13},
+        "styles": {"custom": {
+            "axes.labelsize": 17, "axes.titlesize": 18,
+            "xtick.labelsize": 8, "legend.fontsize": 7,
+            "colorbar.labelsize": 14, "colorbar.ticksize": 6,
+        }},
+    }}
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1], label="curve")
+    ax.set_title("Title"); ax.set_xlabel("X")
+    legend = ax.legend()
+    cbar = fig.colorbar(ax.imshow([[0, 1], [1, 0]]), ax=ax, label="Probability")
+    _save(fig, tmp_path / "custom", "png", cfg=cfg)
+    assert ax.xaxis.label.get_fontsize() == 17
+    assert ax.title.get_fontsize() == 18
+    assert ax.get_xticklabels()[0].get_fontsize() == 8
+    assert legend.get_texts()[0].get_fontsize() == 7
+    assert cbar.ax.yaxis.label.get_fontsize() == 14
+    assert cbar.ax.get_yticklabels()[0].get_fontsize() == 6
+    other, other_ax = plt.subplots()
+    other_ax.set_xlabel("X")
+    _save(other, tmp_path / "other", "png", cfg=cfg)
+    assert other_ax.xaxis.label.get_fontsize() == 13
+    assert plt.rcParams == defaults

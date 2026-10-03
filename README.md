@@ -251,3 +251,40 @@ PYTHONPATH=src pytest -q
 ```
 
 See `VALIDATION.md` for the validation scope.
+
+### Native PDF fonts
+
+Figures default to PNG + PDF using Matplotlib's native renderer; no LaTeX
+installation is required. Serif fonts are selected in order: Computer Modern
+Roman, CMU Serif, STIXGeneral, DejaVu Serif. Math uses Computer Modern.
+PDF output embeds TrueType fonts.
+
+```bash
+PYTHONPATH=src python scripts/make_figures.py --config configs/paper.yaml --format both
+```
+
+### Per-figure font sizes
+
+Edit `figures.styles` in the YAML config. Each key is the output filename without
+its extension. Unspecified settings keep the shared defaults; `figures.style`
+can optionally supply overrides shared by every figure.
+
+```yaml
+figures:
+  styles:
+    02_activity_realization_tuning_0000_probability_field:
+      axes.titlesize: 12
+      axes.labelsize: 11
+      xtick.labelsize: 9
+      ytick.labelsize: 9
+      legend.fontsize: 9
+      colorbar.labelsize: 11
+      colorbar.ticksize: 9
+    08_convergence_nmse:
+      axes.labelsize: 14
+      legend.fontsize: 11
+```
+
+`font.size` changes all text on that figure before the more specific overrides.
+Regenerate figures from saved data after changing sizes. PNG and PDF use the
+same overrides, and other figures retain their own settings.

@@ -6,6 +6,7 @@ from typing import Iterable
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.patches import Circle
+from matplotlib.text import Text
 import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
@@ -13,6 +14,29 @@ from tqdm.auto import tqdm
 from .activity_model import ActivitySample, event_activation_probabilities
 from .dataset import load_activity_samples
 from .io import ensure_dir
+
+
+# Shared native typography; no external LaTeX renderer is required.
+plt.rcParams.update({
+    "font.family": "serif",
+    "font.serif": [
+        "Computer Modern Roman",
+        "CMU Serif",
+        "STIXGeneral",
+        "DejaVu Serif",
+    ],
+    "mathtext.fontset": "cm",
+    "font.size": 10,
+    "axes.labelsize": 12,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+    "legend.fontsize": 10.5,
+    "axes.linewidth": 0.8,
+    # Embed editable TrueType fonts in the PDF.
+    "pdf.fonttype": 42,
+    "ps.fonttype": 42,
+    "text.usetex": False,
+})
 
 
 def figure_formats(mode: str | Iterable[str]) -> tuple[str, ...]:
@@ -25,7 +49,46 @@ def figure_formats(mode: str | Iterable[str]) -> tuple[str, ...]:
     return tuple(mode)
 
 
-def _save(fig: plt.Figure, stem: Path, formats: str | Iterable[str] = "both") -> list[Path]:
+def _apply_figure_style(fig: plt.Figure, style: dict) -> None:
+    """Override typography on this figure only, including its colorbars."""
+    allowed = {"font.size", "axes.titlesize", "axes.labelsize", "xtick.labelsize",
+               "ytick.labelsize", "legend.fontsize", "colorbar.labelsize", "colorbar.ticksize"}
+    unknown = set(style) - allowed
+    if unknown:
+        raise ValueError(f"Unsupported figure style settings: {sorted(unknown)}")
+    if "font.size" in style:
+        for text in fig.findobj(Text):
+            text.set_fontsize(style["font.size"])
+    for ax in fig.axes:
+        for title in (ax.title, ax._left_title, ax._right_title):
+            if "axes.titlesize" in style:
+                title.set_fontsize(style["axes.titlesize"])
+        for label in (ax.xaxis.label, ax.yaxis.label):
+            if "axes.labelsize" in style:
+                label.set_fontsize(style["axes.labelsize"])
+        for axis, key in (("x", "xtick.labelsize"), ("y", "ytick.labelsize")):
+            if key in style:
+                ax.tick_params(axis=axis, which="both", labelsize=style[key])
+                getattr(ax, f"{axis}axis").get_offset_text().set_fontsize(style[key])
+        legend = ax.get_legend()
+        if legend is not None and "legend.fontsize" in style:
+            for text in [*legend.get_texts(), legend.get_title()]:
+                text.set_fontsize(style["legend.fontsize"])
+        if getattr(ax, "_colorbar", None) is not None:
+            if "colorbar.labelsize" in style:
+                ax.xaxis.label.set_fontsize(style["colorbar.labelsize"])
+                ax.yaxis.label.set_fontsize(style["colorbar.labelsize"])
+            if "colorbar.ticksize" in style:
+                ax.tick_params(axis="both", which="both", labelsize=style["colorbar.ticksize"])
+
+
+def _save(fig: plt.Figure, stem: Path, formats: str | Iterable[str] = "both", cfg: dict | None = None) -> list[Path]:
+    figure_cfg = (cfg or {}).get("figures", {})
+    style = dict(figure_cfg.get("style", {}))
+    style.update(figure_cfg.get("styles", {}).get(stem.name, {}))
+    if style:
+        _apply_figure_style(fig, style)
+        fig.tight_layout()
     paths: list[Path] = []
     ensure_dir(stem.parent)
     for ext in figure_formats(formats):
@@ -73,6 +136,7 @@ def plot_activity_sample(
     probability_resolution: int = 301,
     probability_alpha: float = 0.55,
     probability_levels: int = 128,
+    cfg: dict | None = None,
 ) -> list[Path]:
     """Plot one activity sample without requiring Task 02 output files."""
     loc = sample.device_locations
@@ -108,14 +172,36 @@ def plot_activity_sample(
             X, Y, P, levels=levels, cmap=probability_cmap, norm=probability_norm,
             alpha=float(probability_alpha), antialiased=True, zorder=0,
         )
-        fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04, label=r"Combined activation probability $P(\mathbf{x})$")
+        cbar = fig.colorbar(
+            image,
+            ax=ax,
+            fraction=0.046,
+            pad=0.04,
+            ticks=np.linspace(0.0, 1.0, 6),
+        )
+        cbar.set_label(r"Combined activation probability $P(\mathbf{x})$")
 
     if np.any(~active):
-        ax.scatter(loc[~active, 0], loc[~active, 1], marker="o", s=18, alpha=0.75, label="Inactive MTD", zorder=3)
+        ax.scatter(
+            loc[~active, 0], loc[~active, 1],
+            marker="o", s=25, alpha=0.75,
+            label="Inactive MTD", zorder=3,
+            c="tab:blue")
     if np.any(active):
-        ax.scatter(loc[active, 0], loc[active, 1], marker="o", s=52, label="Active MTD", zorder=4)
-    ax.scatter(sample.event_locations[:, 0], sample.event_locations[:, 1], marker="*", s=150, label="Event", zorder=5)
-    ax.scatter([0.0], [0.0], marker="x", s=90, label="BS", zorder=5)
+        ax.scatter(
+            loc[active, 0], loc[active, 1],
+            marker="o", s=25, alpha=0.75,
+            label="Active MTD", zorder=4,
+            c="green")
+    ax.scatter(
+        sample.event_locations[:, 0], sample.event_locations[:, 1],
+        marker="*", s=150, c="red", alpha=0.75, label="Event", zorder=5,
+    )
+    ax.scatter(
+        [0.0], [0.0],
+        marker="o", s=90, c="black", alpha=0.75,
+        label="BS", zorder=5,
+    )
     ax.add_patch(Circle((0.0, 0.0), R, fill=False, linestyle="--", linewidth=1.2, zorder=6))
     if show_event_radius:
         first = True
@@ -130,7 +216,7 @@ def plot_activity_sample(
         ax.set_title(title)
     ax.grid(True, alpha=0.2); ax.legend(loc="best")
     fig.tight_layout()
-    return _save(fig, stem, formats)
+    return _save(fig, stem, formats, cfg=cfg)
 
 
 def _saved_activity_parameters(cfg: dict) -> tuple[float, float, float]:
@@ -175,6 +261,7 @@ def plot_activity_realization(
     suffix = "_probability_field" if show_probability_field else ""
     return plot_activity_sample(
         sample,
+        cfg=cfg,
         R=R,
         D=D,
         kappa=kappa,
@@ -185,7 +272,7 @@ def plot_activity_realization(
         probability_resolution=int(fig_cfg.get("probability_resolution", 301)),
         probability_alpha=float(fig_cfg.get("probability_alpha", 0.55)),
         probability_levels=int(fig_cfg.get("probability_levels", 128)),
-        title=f"Selected {split} realization #{sample_index}: {int(np.sum(sample.a))} active MTDs",
+        title=f"Selected {split} realization {sample_index}: {int(np.sum(sample.a))} active MTDs",
     )
 
 
@@ -216,7 +303,7 @@ def plot_activity_s_distribution(cfg: dict, formats: str = "both") -> list[Path]
     ax.grid(True, alpha=0.2)
     ax.legend()
     fig.tight_layout()
-    return _save(fig, out / "figures" / "tasks" / "02_activity_realized_s_distribution", formats)
+    return _save(fig, out / "figures" / "tasks" / "02_activity_realized_s_distribution", formats, cfg=cfg)
 
 def plot_activity_calibration(cfg: dict, formats: str = "both") -> list[Path]:
     """Plot mean active count versus kappa from the Task 01 calibration files."""
@@ -244,7 +331,7 @@ def plot_activity_calibration(cfg: dict, formats: str = "both") -> list[Path]:
     ax.set_title(fr"Activity calibration for $D={D:g}$ m")
     ax.grid(True, alpha=0.2); ax.legend()
     fig.tight_layout()
-    return _save(fig, out / "figures" / "tasks" / "01_activity_kappa_calibration", formats)
+    return _save(fig, out / "figures" / "tasks" / "01_activity_kappa_calibration", formats, cfg=cfg)
 
 
 def plot_communication_preview(cfg: dict, formats: str = "both") -> list[Path]:
@@ -259,7 +346,7 @@ def plot_communication_preview(cfg: dict, formats: str = "both") -> list[Path]:
     ax.set_xlabel("Pilot index j"); ax.set_ylabel("Pilot index i")
     ax.set_title("Pilot cross-correlation magnitude (diagonal removed)")
     fig.tight_layout()
-    return _save(fig, out / "figures" / "tasks" / "03_pilot_cross_correlation", formats)
+    return _save(fig, out / "figures" / "tasks" / "03_pilot_cross_correlation", formats, cfg=cfg)
 
 
 def plot_correlation_preview(cfg: dict, formats: str = "both") -> list[Path]:
@@ -270,7 +357,7 @@ def plot_correlation_preview(cfg: dict, formats: str = "both") -> list[Path]:
     fig.colorbar(image, ax=ax, label=r"$C_{ij}$")
     ax.set_xlabel("MTD j"); ax.set_ylabel("MTD i"); ax.set_title("Spatial correlation matrix C")
     fig.tight_layout()
-    return _save(fig, out / "figures" / "tasks" / "04_correlation_matrix", formats)
+    return _save(fig, out / "figures" / "tasks" / "04_correlation_matrix", formats, cfg=cfg)
 
 
 def plot_alpha_beta_tuning(cfg: dict, formats: str = "both") -> list[Path]:
@@ -284,7 +371,7 @@ def plot_alpha_beta_tuning(cfg: dict, formats: str = "both") -> list[Path]:
     ax.set_yticks(np.arange(len(pivot.index)), [f"{x:g}" for x in pivot.index])
     ax.set_xlabel(r"$\beta$"); ax.set_ylabel(r"$\alpha$"); ax.set_title(r"CA-SBL $\alpha$-$\beta$ tuning")
     fig.tight_layout()
-    return _save(fig, out / "figures" / "tasks" / "05_alpha_beta_f1", formats)
+    return _save(fig, out / "figures" / "tasks" / "05_alpha_beta_f1", formats, cfg=cfg)
 
 
 def plot_threshold_tuning(cfg: dict, formats: str = "both") -> list[Path]:
@@ -303,7 +390,7 @@ def plot_threshold_tuning(cfg: dict, formats: str = "both") -> list[Path]:
         ax.axvline(best["tau"], linestyle="--", linewidth=1.0, label=f"selected tau={best['tau']:.3g}")
         ax.set_xlabel(r"Threshold $\tau$"); ax.set_ylabel("Score"); ax.set_ylim(-0.02, 1.02)
         ax.set_title(f"{label} threshold tuning"); ax.grid(True, alpha=0.2); ax.legend()
-        fig.tight_layout(); paths.extend(_save(fig, out / "figures" / "tasks" / stem, formats))
+        fig.tight_layout(); paths.extend(_save(fig, out / "figures" / "tasks" / stem, formats, cfg=cfg))
     return paths
 
 
@@ -319,7 +406,7 @@ def plot_gamma_distribution(cfg: dict, formats: str = "both") -> list[Path]:
         ax.hist(gamma[a], bins=50, alpha=0.55, density=True, label="Active MTD")
         ax.set_xlabel(r"$\gamma_i$"); ax.set_ylabel("Density"); ax.set_title(f"{label} gamma distribution")
         ax.legend(); ax.grid(True, alpha=0.2); fig.tight_layout()
-        paths.extend(_save(fig, out / "figures" / "tasks" / stem, formats))
+        paths.extend(_save(fig, out / "figures" / "tasks" / stem, formats, cfg=cfg))
     return paths
 
 
@@ -332,16 +419,16 @@ def plot_convergence(cfg: dict, formats: str = "both") -> list[Path]:
     ax.set_xlabel("Iteration"); ax.set_ylabel("NMSE"); ax.set_yscale("log")
     ax.grid(True, alpha=0.2); ax.legend(); ax.set_title("Convergence at reference condition")
     fig.tight_layout()
-    return _save(fig, out / "figures" / "tasks" / "08_convergence_nmse", formats)
+    return _save(fig, out / "figures" / "tasks" / "08_convergence_nmse", formats, cfg=cfg)
 
 
-def _line_plot(df: pd.DataFrame, x: str, y: str, title: str, xlabel: str, ylabel: str, stem: Path, formats: str) -> list[Path]:
+def _line_plot(df: pd.DataFrame, x: str, y: str, title: str, xlabel: str, ylabel: str, stem: Path, formats: str, cfg: dict | None = None) -> list[Path]:
     fig, ax = plt.subplots(figsize=(6.4, 4.2))
     for algorithm, group in df.groupby("algorithm"):
         group = group.sort_values(x)
         ax.plot(group[x], group[y], marker="o", label=algorithm)
     ax.set_title(title); ax.set_xlabel(xlabel); ax.set_ylabel(ylabel); ax.grid(True, alpha=0.25); ax.legend()
-    fig.tight_layout(); return _save(fig, stem, formats)
+    fig.tight_layout(); return _save(fig, stem, formats, cfg=cfg)
 
 
 def make_performance_figures(cfg: dict, formats: str = "both", show_progress: bool = True) -> list[Path]:
@@ -358,7 +445,7 @@ def make_performance_figures(cfg: dict, formats: str = "both", show_progress: bo
     ]
     paths: list[Path] = []
     for job in tqdm(jobs, desc="Performance figures", unit="figure", disable=not show_progress):
-        paths.extend(_line_plot(*job, formats=formats))
+        paths.extend(_line_plot(*job, formats=formats, cfg=cfg))
     return paths
 
 
