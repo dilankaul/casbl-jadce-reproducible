@@ -1,145 +1,253 @@
 # CA-SBL for JADCE in MTC — Reproducible Implementation
 
-Reproducible, Codespaces-ready implementation for the paper **Correlation-Aware SBL for Device Detection and Channel Estimation in MTC**.
+Codespaces-ready implementation for the paper **Correlation-Aware SBL for Device Detection and Channel Estimation in MTC**.
 
-The repository replaces the notebook-heavy legacy workflow with tested Python modules and deterministic experiment scripts while preserving the same research stages: activity modelling, communication simulation, correlation construction, hyperparameter tuning, thresholding, estimation, convergence analysis, evaluation, and figure generation.
+The scientific workflow contains **nine uniquely numbered tasks (01–09)**. Utility scripts are deliberately unnumbered because they do not represent additional experimental stages. Standard figures are saved automatically by the numbered task that produces the corresponding data. Separate plotting utilities are retained only for regenerating figures from saved outputs without rerunning expensive computations.
 
-## Mathematical change implemented
+`AGENTS.md` contains persistent instructions for Codex, while `DECISIONS.md` records locked scientific and implementation decisions.
 
-The code uses the proper **complex MMV** SBL objective. For each device row \(\mathbf z_i\in\mathbb C^M\),
+## Implemented CA-SBL theory
 
-\[
-\mathbf z_i\mid\gamma_i\sim\mathcal{CN}(\mathbf0,\gamma_i\mathbf I_M),
-\]
-
-which gives an SBL term proportional to
+For the proper complex MMV model,
 
 \[
+\mathbb E[\log p(\mathbf Z\mid\boldsymbol\gamma)]
+\propto
 -M\sum_i\left(\log\gamma_i+\eta_i/\gamma_i\right),
 \qquad
 \eta_i=\Sigma_{ii}+\|\boldsymbol\mu_i\|_2^2/M.
 \]
 
-The ANC definition is unchanged:
+The ANC construction remains
 
 \[
-\mathbf\Omega=\alpha(\beta\mathbf1-\mathbf C).
+\mathbf\Omega=\alpha(\beta\mathbf1-\mathbf C),
 \]
 
-The corrected interaction is
+and the corrected interaction is
 
 \[
 \phi_i=(\mathbf\Omega\boldsymbol\gamma)_i/M.
 \]
 
-For \(\phi_i>0\), CA-SBL uses the numerically stable update
+For \(\phi_i>0\), the implementation uses
 
 \[
-\gamma_i^{new}=
+\gamma_i^{\mathrm{new}}
+=
 \frac{2\eta_i}{\sqrt{1+4\phi_i\eta_i}+1}.
 \]
 
-There is **no upper clipping** of \(\gamma_i\). See `docs/theory.md` for the derivation implemented by the code.
+For \(\phi_i\le0\), the current implementation uses the conventional SBL fallback \(\gamma_i=\eta_i\). There is no upper clipping of \(\gamma_i\).
+
+## Setup
+
+Verify the environment with:
+
+```bash
+PYTHONPATH=src pytest -q
+```
+
+Use `configs/quick.yaml` for smoke tests and `configs/paper.yaml` for paper-scale runs. The current activity model uses `D=15 m`; `kappa=3.785` is an initial calibrated candidate and should be confirmed with Task 01. `system.S` is the **target mean activity level**, not a hard per-realization sparsity constraint.
+
+## Numbered scientific workflow
+
+By default, each numbered task saves its standard figures as both PNG and vector PDF. Use `--figures none` only when figures are deliberately not wanted.
+
+### Task 01 — Calibrate the activity model
+
+```bash
+python scripts/01_calibrate_activity.py \
+  --config configs/paper.yaml \
+  --D 15 \
+  --samples 5000
+```
+
+This saves the calibration CSV/JSON and the \(\kappa\)-calibration figure. It does not overwrite Task-02 activity datasets.
+
+### Task 02 — Generate activity realizations
+
+```bash
+python scripts/02_generate_activity.py \
+  --config configs/quick.yaml \
+  --sample 0
+```
+
+The event process is unconditioned, so the realized activity count \(S_r\) varies. This task saves tuning/evaluation activity datasets, `realized_s.csv`, summary statistics, a selected activity realization with the activation-probability field, and the realized-\(S\) distribution.
+
+### Task 03 — Generate the communication-model preview
+
+```bash
+python scripts/03_generate_communication.py --config configs/quick.yaml
+```
+
+The model uses
+
+\[
+\mathbf Z=\operatorname{diag}(\mathbf a)\mathbf H^T,
+\qquad
+\mathbf Y=\mathbf\Theta\mathbf Z+\mathbf W,
+\]
+
+with unit-norm QPSK pilots and deterministic condition-specific random streams. The pilot cross-correlation figure is saved automatically.
+
+### Task 04 — Build the spatial correlation matrix
+
+```bash
+python scripts/04_build_correlation.py --config configs/quick.yaml
+```
+
+The correlation summary and \(\mathbf C\) visualization are saved automatically.
+
+### Task 05 — Tune \(\alpha,\beta\)
+
+```bash
+python scripts/05_tune_alpha_beta.py \
+  --config configs/quick.yaml \
+  --workers 2
+```
+
+Task 05 uses an internally optimized provisional threshold only for ranking the \((\alpha,\beta)\) grid. The selected grid result and tuning figure are saved automatically. Final CA-SBL and SBL activity thresholds are independently selected in Task 06.
+
+### Task 06 — Tune activity thresholds
+
+```bash
+python scripts/06_tune_thresholds.py --config configs/quick.yaml
+```
+
+This saves `casbl_thresholds.csv`, `sbl_thresholds.csv`, `selected.json`, and the CA-SBL/SBL threshold-tuning figures.
+
+### Task 07 — Run all estimators
+
+```bash
+python scripts/07_run_estimators.py \
+  --config configs/quick.yaml \
+  --workers 2
+```
+
+This runs CA-SBL-ANC, conventional SBL, MMV-OMP/SOMP, and MMV-CoSaMP on identical communication realizations and automatically saves the gamma-distribution diagnostics.
+
+For each realization, the greedy baselines use
+
+\[
+K_r=\min(S_r,L,N),
+\]
+
+where \(S_r=\sum_i a_i\). Thus `K_r == S_r` whenever feasible. If `S_r > L`, the greedy support budget is capped at `L`. Raw baseline rows record `realized_S`, `oracle_K`, and `oracle_capped`; `run_summary.json` reports how often capping occurs. CA-SBL and SBL are **not** given \(S_r\) or \(K_r\).
+
+### Task 08 — Run convergence analysis
+
+```bash
+python scripts/08_run_convergence.py --config configs/quick.yaml
+```
+
+The convergence data and convergence figure are saved automatically.
+
+### Task 09 — Aggregate, evaluate, and generate performance figures
+
+```bash
+python scripts/09_evaluate.py --config configs/quick.yaml
+```
+
+This task does not rerun estimators. It aggregates the raw Task-07 results and automatically saves the standard F1, NMSE, and runtime performance figures.
+
+## Unnumbered utilities
+
+These scripts are utilities, not scientific tasks:
+
+```text
+preview_activity.py
+plot_selected_realization.py
+plot_activity_s_distribution.py
+make_figures.py
+task_status.py
+run_all.py
+```
+
+Preview an activity realization before Task 02:
+
+```bash
+python scripts/preview_activity.py \
+  --config configs/paper.yaml \
+  --D 15 \
+  --kappa 3.785 \
+  --sample 10 \
+  --probability-field
+```
+
+Regenerate a selected saved Task-02 realization without rerunning Task 02:
+
+```bash
+python scripts/plot_selected_realization.py \
+  --config configs/quick.yaml \
+  --split evaluation \
+  --sample 5 \
+  --probability-field
+```
+
+Regenerate the realized-\(S\) distribution:
+
+```bash
+python scripts/plot_activity_s_distribution.py --config configs/quick.yaml
+```
+
+Regenerate all figures that can be reconstructed from saved outputs:
+
+```bash
+python scripts/make_figures.py --config configs/quick.yaml
+```
+
+Inspect a completed scientific task:
+
+```bash
+python scripts/task_status.py --config configs/quick.yaml --task 7
+```
+
+Run the core experiment pipeline (Tasks 02–09) and then regenerate all available figures:
+
+```bash
+python scripts/run_all.py \
+  --config configs/paper.yaml \
+  --workers 4
+```
+
+Task 01 remains a calibration/verification step because it does not silently rewrite the configured \(\kappa\).
+
+## Activity-probability figure
+
+The displayed field is the actual event-model probability
+
+\[
+P(\mathbf x)=1-\prod_v\left[1-P_v(\mathbf x)\right].
+\]
+
+The probability data are never thresholded, epsilon-shifted, or modified to make the figure white. The only mask is outside the physical circular BS cell. A custom colormap maps `P=0` to pure white and increasing probability toward dark red. Publication PDFs use vector `contourf` with levels spanning exactly `[0,1]`.
 
 ## Baselines
 
-- **SBL**: complex MMV SBL using the same optimized posterior engine as CA-SBL.
-- **MMV-OMP / SOMP**: joint row-support OMP using known sparsity \(S\).
-- **MMV-CoSaMP**: joint-support CoSaMP using SVD least squares; no hidden ridge penalty.
+- **SBL:** proper complex-MMV SBL using the optimized posterior engine.
+- **MMV-OMP / SOMP:** joint row-support greedy baseline using oracle budget \(K_r\).
+- **MMV-CoSaMP:** joint row-support CoSaMP using unregularized SVD least squares and the same oracle budget \(K_r\).
 
-OMP and CoSaMP are therefore oracle-sparsity baselines because they receive the true \(S\).
+The greedy methods should be described in the paper as **oracle sparsity-budget baselines**, not as methods always receiving the uncapped realized sparsity.
 
-## Codespaces
+## Reproducibility
 
-Open the repository in GitHub Codespaces. The devcontainer installs the package automatically.
+- Tuning and evaluation activity streams are deterministic and separate.
+- Activity and communication random streams are separate.
+- All algorithms receive identical \(\mathbf a,\mathbf H,\mathbf Z,\mathbf\Theta,\mathbf W,\mathbf Y\) for a given condition.
+- \(\mathbf H\) is fixed across pilot lengths and SNRs for a realization.
+- \(\mathbf\Theta\) is fixed across SNR values for a given realization and pilot length.
+- Thresholds are selected only from tuning data.
+- CA-SBL \(\alpha,\beta\) must be retuned under the corrected \(1/M\) interaction scaling.
+- Large communication tensors are deterministically regenerated rather than stored for every Monte-Carlo condition.
 
-Run the tests first:
+## Validation
 
-```bash
-pytest
-```
-
-Run a small end-to-end verification:
-
-```bash
-python scripts/run_all.py --config configs/quick.yaml --workers 2
-```
-
-Run the full paper experiment:
+Run:
 
 ```bash
-python scripts/run_all.py --config configs/paper.yaml --workers 4
+PYTHONPATH=src pytest -q
 ```
 
-The best worker count depends on the Codespaces machine. BLAS threads are fixed to one per worker to avoid CPU oversubscription.
-
-## Pipeline
-
-```text
-01_generate_activity.py
-02_generate_communication.py
-03_build_correlation.py
-04_tune_alpha_beta.py
-05_tune_thresholds.py
-06_run_estimators.py
-07_run_convergence.py
-08_evaluate.py
-09_make_figures.py
-```
-
-`run_all.py` runs these stages in dependency order.
-
-### Why the communication stage is compact
-
-Large \(Y\), \(W\), and pilot arrays are not saved for every Monte Carlo condition. They are generated deterministically from the recorded seeds. `02_generate_communication.py` saves a full numerical preview plus a manifest describing the seed mapping. This keeps paper results small enough to commit while preserving exact reproducibility.
-
-## Result layout
-
-A run such as `configs/paper.yaml` produces:
-
-```text
-results/paper/
-├── config.yaml
-├── manifest.json
-├── activity/
-│   ├── tuning_activity.npz
-│   ├── evaluation_activity.npz
-│   └── summary.json
-├── communication/
-│   ├── manifest.json
-│   └── preview.npz
-├── correlation/
-│   ├── preview_C.npz
-│   └── summary.json
-├── tuning/
-│   ├── alpha_beta.csv
-│   └── selected.json
-├── evaluation/
-│   ├── per_sample.csv
-│   ├── aggregate.csv
-│   └── gamma_distribution.npz
-├── convergence/
-│   └── convergence.npz
-└── figures/
-    ├── f1_vs_snr.png
-    ├── nmse_vs_snr.png
-    ├── f1_vs_pilot_length.png
-    ├── nmse_vs_pilot_length.png
-    ├── runtime_vs_snr.png
-    └── convergence_nmse.png
-```
-
-## Reproducibility decisions
-
-- Tuning and final evaluation use separate activity seeds.
-- For each evaluation sample, all algorithms receive the exact same \(\mathbf a,\mathbf H,\mathbf Z,\mathbf\Theta,\mathbf W,\mathbf Y\).
-- \(\mathbf H\) is fixed across pilot lengths and SNR values for a sample.
-- \(\mathbf\Theta\) is fixed across SNR values for a given sample and pilot length.
-- Noise is deterministic for each sample/pilot-length/SNR condition.
-- CA-SBL and SBL use `complex128`/`float64` in paper runs.
-- Thresholds are selected only from the tuning set.
-- CA-SBL \(\alpha,\beta\) are retuned because the corrected theory changes the interaction from the legacy factor \(2\) to \(1/M\).
-
-## Configuration
-
-`configs/paper.yaml` is the source of truth for experiment parameters. If a manuscript parameter changes, change it there before rerunning.
+See `VALIDATION.md` for the validation scope.

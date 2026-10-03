@@ -13,17 +13,20 @@ def save_activity_samples(path: str | Path, samples: list[ActivitySample]) -> No
         device_locations=np.stack([s.device_locations for s in samples]),
         event_locations=np.stack([s.event_locations for s in samples]),
         activation_probabilities=np.stack([s.activation_probabilities for s in samples]),
+        attempts=np.asarray([s.attempts for s in samples], dtype=np.int64),
     )
 
 
 def load_activity_samples(path: str | Path) -> list[ActivitySample]:
     data = np.load(path)
+    attempts = data["attempts"] if "attempts" in data.files else np.ones(data["a"].shape[0], dtype=int)
     return [
         ActivitySample(
             a=data["a"][i].astype(bool),
             device_locations=data["device_locations"][i],
             event_locations=data["event_locations"][i],
             activation_probabilities=data["activation_probabilities"][i],
+            attempts=int(attempts[i]),
         )
         for i in range(data["a"].shape[0])
     ]

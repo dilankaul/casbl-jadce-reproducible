@@ -4,41 +4,88 @@ run:
   communication_seed: 20260817
   num_tuning_samples: 100
   num_evaluation_samples: 1000
-
 system:
   N: 400
   M: 4
   S: 10
   R: 40.0
-  pilot_lengths: [20, 25, 30, 35, 40, 45]
-  snr_db: [4, 8, 12, 16, 20, 24]
-
+  pilot_lengths:
+  - 20
+  - 25
+  - 30
+  - 35
+  - 40
+  - 45
+  snr_db:
+  - 4
+  - 8
+  - 12
+  - 16
+  - 20
+  - 24
 activity:
   V: 2
-  kappa: 3.0
-  D: 20.0
-  exact_sparsity: true
+  kappa: 3.785
+  D: 15.0
+  exact_sparsity: false
   max_attempts: 100000
-
+  batch_size: 256
+  calibration_samples: 5000
+  kappa_scan:
+  - 3.4
+  - 3.5
+  - 3.6
+  - 3.7
+  - 3.75
+  - 3.775
+  - 3.785
+  - 3.8
+  - 3.825
+  - 3.85
+  - 3.9
+  - 4.0
+  - 4.1
+  calibration_seed_offset: 90000
 correlation:
   rho: 7.0
   U: 20.0
-
 algorithms:
   gamma_init: 0.1
   sbl_max_iter: 500
-  sbl_tol: 1.0e-4
+  sbl_tol: 0.0001
   cosamp_max_iter: 50
-  cosamp_tol: 1.0e-6
-
+  cosamp_tol: 1.0e-06
 tuning:
   reference_snr_db: 12
   reference_pilot_length: 25
-  # Corrected complex-MMV theory uses phi=(Omega gamma)/M, so alpha is retuned.
-  alpha_values: [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0]
-  beta_values: [0.0, 0.025, 0.05, 0.075, 0.10, 0.125, 0.15, 0.175, 0.20]
+  alpha_values:
+  - 0.0
+  - 2.0
+  - 4.0
+  - 6.0
+  - 8.0
+  - 10.0
+  - 12.0
+  - 14.0
+  - 16.0
+  beta_values:
+  - 0.0
+  - 0.025
+  - 0.05
+  - 0.075
+  - 0.1
+  - 0.125
+  - 0.15
+  - 0.175
+  - 0.2
   num_thresholds: 80
-
 evaluation:
   gamma_distribution_samples: 100
   convergence_sample_offset: 0
+figures:
+  selected_sample: 0
+  show_event_radius: true
+  show_probability_field: true
+  probability_resolution: 301
+  probability_alpha: 0.55
+  probability_levels: 128

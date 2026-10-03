@@ -6,8 +6,10 @@ from scipy.linalg import lstsq
 def mmv_omp(Theta: np.ndarray, Y: np.ndarray, S: int) -> np.ndarray:
     """MMV-OMP/SOMP using row-energy selection and known joint sparsity S."""
     L, N = Theta.shape
-    if not (0 < S <= min(L, N)):
-        raise ValueError("S must satisfy 0 < S <= min(L, N).")
+    if not (0 <= S <= min(L, N)):
+        raise ValueError("S must satisfy 0 <= S <= min(L, N).")
+    if S == 0:
+        return np.zeros((N, Y.shape[1]), dtype=np.complex128)
     residual = Y.copy()
     support: list[int] = []
     Xs = np.empty((0, Y.shape[1]), dtype=np.complex128)

@@ -6,9 +6,11 @@ from scipy.linalg import lstsq
 def mmv_cosamp(Theta: np.ndarray, Y: np.ndarray, S: int, max_iter: int = 50, tol: float = 1e-6) -> np.ndarray:
     """MMV CoSaMP with unregularized SVD least-squares support estimation."""
     L, N = Theta.shape
-    if not (0 < S <= min(L, N)):
-        raise ValueError("S must satisfy 0 < S <= min(L, N).")
+    if not (0 <= S <= min(L, N)):
+        raise ValueError("S must satisfy 0 <= S <= min(L, N).")
     Z_hat = np.zeros((N, Y.shape[1]), dtype=np.complex128)
+    if S == 0:
+        return Z_hat
     residual = Y.copy()
     support = np.array([], dtype=int)
     y_norm = max(np.linalg.norm(Y), np.finfo(float).eps)
