@@ -69,6 +69,10 @@ def run_task(task_number: int, argv: list[str] | None = None) -> list:
             kwargs["show_progress"] = not args.no_progress
         paths.extend(render(cfg, **kwargs))
     print(f"Task {task_number:02d} figures:")
-    for path in paths:
+    reported_paths = dict.fromkeys(
+        path.parent if task_number == 2 and path.parent.name in {"tuning", "evaluation"} else path
+        for path in paths
+    )
+    for path in reported_paths:
         print(f"  - {path}")
     return paths

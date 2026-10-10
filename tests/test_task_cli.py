@@ -77,3 +77,24 @@ def test_activity_task_exports_both_splits_automatically(tmp_path, monkeypatch):
     assert calls[0] == 'stage'
     assert 'splits' not in calls[1]
     assert calls[1]['formats'] == 'png'
+
+
+def test_activity_report_lists_split_folders_instead_of_1100_files(tmp_path, monkeypatch, capsys):
+    cfg = load_config('tests/fixtures/small_experiment.yaml')
+    config = tmp_path / 'input.yaml'
+    save_yaml(config, cfg)
+    figures = tmp_path / '02_activity_realizations' / 'figures'
+    paths = [figures / 'tuning' / f'{i:04d}.png' for i in range(100)]
+    paths += [figures / 'evaluation' / f'{i:04d}.png' for i in range(1000)]
+    histogram = figures / '02_activity_realized_s_distribution.png'
+    paths.append(histogram)
+    monkeypatch.setitem(task_cli.TASKS, 2, replace(task_cli.TASKS[2],
+        stage=lambda *args, **kwargs: None,
+        plots=(lambda *args, **kwargs: paths,)))
+    assert task_cli.run_task(2, ['--config', str(config)]) == paths
+    assert capsys.readouterr().out.splitlines() == [
+        'Task 02 figures:',
+        f'  - {figures / "tuning"}',
+        f'  - {figures / "evaluation"}',
+        f'  - {histogram}',
+    ]
