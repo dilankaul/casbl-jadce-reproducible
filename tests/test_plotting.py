@@ -1,4 +1,5 @@
-from casbl_jadce.plotting import figure_formats
+from casbl_jadce.paths import result_path
+from casbl_jadce.figures.common import figure_formats
 
 
 def test_figure_format_options():
@@ -10,9 +11,9 @@ def test_figure_format_options():
 
 def test_activity_s_distribution_uses_saved_task_data(tmp_path):
     import numpy as np
-    from casbl_jadce.activity_model import ActivitySample
+    from casbl_jadce.models.activity import ActivitySample
     from casbl_jadce.dataset import save_activity_samples
-    from casbl_jadce.plotting import plot_activity_s_distribution
+    from casbl_jadce.figures.task02_active_mtd_count_distribution import plot_activity_s_distribution
 
     def sample(active_count):
         a = np.zeros(6, dtype=bool); a[:active_count] = True
@@ -24,8 +25,8 @@ def test_activity_s_distribution_uses_saved_task_data(tmp_path):
         )
 
     out = tmp_path / "run"
-    save_activity_samples(out / "activity" / "tuning_activity.npz", [sample(1), sample(2)])
-    save_activity_samples(out / "activity" / "evaluation_activity.npz", [sample(2), sample(3)])
+    save_activity_samples(result_path(out, "activity", "tuning_activity.npz"), [sample(1), sample(2)])
+    save_activity_samples(result_path(out, "activity", "evaluation_activity.npz"), [sample(2), sample(3)])
     cfg = {"run": {"output_dir": str(out)}, "system": {"S": 2}}
     paths = plot_activity_s_distribution(cfg, formats="png")
     assert len(paths) == 1
@@ -34,7 +35,7 @@ def test_activity_s_distribution_uses_saved_task_data(tmp_path):
 
 def test_activity_probability_grid_matches_event_model():
     import numpy as np
-    from casbl_jadce.plotting import activity_probability_grid
+    from casbl_jadce.figures.task02_activity_realizations import activity_probability_grid
 
     X, Y, P = activity_probability_grid(
         np.array([[0.0, 0.0]]), R=20.0, D=10.0, kappa=3.0, resolution=101
@@ -50,8 +51,8 @@ def test_activity_probability_grid_matches_event_model():
 
 def test_activity_probability_figure_can_be_saved(tmp_path):
     import numpy as np
-    from casbl_jadce.activity_model import ActivitySample
-    from casbl_jadce.plotting import plot_activity_sample
+    from casbl_jadce.models.activity import ActivitySample
+    from casbl_jadce.figures.task02_activity_realizations import plot_activity_sample
 
     sample = ActivitySample(
         a=np.array([True, False]),
@@ -70,8 +71,8 @@ def test_activity_probability_figure_can_be_saved(tmp_path):
 def test_probability_field_uses_vector_contours(tmp_path, monkeypatch):
     import matplotlib.axes
     import numpy as np
-    from casbl_jadce.activity_model import ActivitySample
-    from casbl_jadce.plotting import plot_activity_sample
+    from casbl_jadce.models.activity import ActivitySample
+    from casbl_jadce.figures.task02_activity_realizations import plot_activity_sample
 
     called = {"contourf": False}
     original_contourf = matplotlib.axes.Axes.contourf
@@ -101,8 +102,8 @@ def test_probability_field_uses_vector_contours(tmp_path, monkeypatch):
 def test_probability_contours_start_at_zero_and_colormap_zero_is_white(monkeypatch, tmp_path):
     import matplotlib.axes
     import numpy as np
-    from casbl_jadce.activity_model import ActivitySample
-    from casbl_jadce.plotting import plot_activity_sample
+    from casbl_jadce.models.activity import ActivitySample
+    from casbl_jadce.figures.task02_activity_realizations import plot_activity_sample
 
     captured = {}
     original = matplotlib.axes.Axes.contourf
@@ -137,9 +138,9 @@ def test_probability_contours_start_at_zero_and_colormap_zero_is_white(monkeypat
 def test_selected_realization_exports_pdf_with_native_truetype_fonts(tmp_path):
     import numpy as np
     import matplotlib as mpl
-    from casbl_jadce.activity_model import ActivitySample
+    from casbl_jadce.models.activity import ActivitySample
     from casbl_jadce.dataset import save_activity_samples
-    from casbl_jadce.plotting import plot_activity_realization
+    from casbl_jadce.figures.task02_activity_realizations import plot_activity_realization
 
     sample = ActivitySample(
         a=np.array([True, False]),
@@ -147,7 +148,7 @@ def test_selected_realization_exports_pdf_with_native_truetype_fonts(tmp_path):
         event_locations=np.array([[0.0, 0.0]]),
         activation_probabilities=np.array([1.0, 0.1]),
     )
-    save_activity_samples(tmp_path / "activity" / "tuning_activity.npz", [sample])
+    save_activity_samples(result_path(tmp_path, "activity", "tuning_activity.npz"), [sample])
     cfg = {
         "run": {"output_dir": str(tmp_path)},
         "system": {"R": 20.0},
@@ -165,7 +166,7 @@ def test_selected_realization_exports_pdf_with_native_truetype_fonts(tmp_path):
 
 
 def test_per_figure_font_overrides_are_isolated(tmp_path):
-    from casbl_jadce.plotting import plt, _save
+    from casbl_jadce.figures.common import plt, _save, _apply_figure_style
 
     defaults = plt.rcParams.copy()
     cfg = {"figures": {
@@ -181,7 +182,9 @@ def test_per_figure_font_overrides_are_isolated(tmp_path):
     ax.set_title("Title"); ax.set_xlabel("X")
     legend = ax.legend()
     cbar = fig.colorbar(ax.imshow([[0, 1], [1, 0]]), ax=ax, label="Probability")
-    _save(fig, tmp_path / "custom", "png", cfg=cfg)
+    style = {**cfg["figures"]["style"], **cfg["figures"]["styles"]["custom"]}
+    _apply_figure_style(fig, style)
+    _save(fig, tmp_path / "custom", "png")
     assert ax.xaxis.label.get_fontsize() == 17
     assert ax.title.get_fontsize() == 18
     assert ax.get_xticklabels()[0].get_fontsize() == 8
@@ -190,6 +193,58 @@ def test_per_figure_font_overrides_are_isolated(tmp_path):
     assert cbar.ax.get_yticklabels()[0].get_fontsize() == 6
     other, other_ax = plt.subplots()
     other_ax.set_xlabel("X")
-    _save(other, tmp_path / "other", "png", cfg=cfg)
+    _apply_figure_style(other, cfg["figures"]["style"])
+    _save(other, tmp_path / "other", "png")
     assert other_ax.xaxis.label.get_fontsize() == 13
     assert plt.rcParams == defaults
+
+
+def test_batch_activity_figures_include_both_splits_and_titles(tmp_path, monkeypatch):
+    import numpy as np
+    from casbl_jadce.models.activity import ActivitySample
+    from casbl_jadce.dataset import save_activity_samples
+    from casbl_jadce.figures import task02_activity_realizations as plotting
+
+    samples = [ActivitySample(
+        a=np.array([True, bool(index)]),
+        device_locations=np.array([[0.0, 0.0], [8.0, 0.0]]),
+        event_locations=np.array([[0.0, 0.0]]),
+        activation_probabilities=np.array([1.0, 0.1]),
+    ) for index in range(2)]
+    save_activity_samples(result_path(tmp_path, "activity", "tuning_activity.npz"), samples)
+    save_activity_samples(result_path(tmp_path, "activity", "evaluation_activity.npz"), samples[:1])
+    cfg = {
+        "run": {"output_dir": str(tmp_path)}, "system": {"R": 20.0},
+        "activity": {"D": 10.0, "kappa": 3.0},
+        "figures": {},
+    }
+    titles = []
+    original_save = plotting._save
+
+    def capture_save(fig, stem, formats):
+        paths = original_save(fig, stem, formats)
+        titles.append((fig.axes[0].get_title(), fig.axes[0].title.get_fontsize()))
+        return paths
+
+    monkeypatch.setattr(plotting, "_save", capture_save)
+    paths = plotting.plot_activity_realizations(cfg, formats="png", show_progress=False)
+    assert len(paths) == 3
+    assert all(path.exists() for path in paths)
+    assert len(set(paths)) == 3
+    assert titles == [
+        ("Tuning activity realization 0: 1 active MTDs", 15),
+        ("Tuning activity realization 1: 2 active MTDs", 15),
+        ("Evaluation activity realization 0: 1 active MTDs", 15),
+    ]
+
+
+def test_font_metadata_filter_keeps_other_warnings():
+    import logging
+    from casbl_jadce.figures.common import _FontTimestampFilter
+    filt = _FontTimestampFilter()
+    for field in ('created', 'modified'):
+        record = logging.LogRecord('fontTools', logging.WARNING, '', 0,
+            "'%s' timestamp seems very low; regarding as unix timestamp", (field,), None)
+        assert not filt.filter(record)
+    record = logging.LogRecord('fontTools', logging.WARNING, '', 0, 'Missing glyph', (), None)
+    assert filt.filter(record)

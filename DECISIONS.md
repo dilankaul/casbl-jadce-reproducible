@@ -24,5 +24,53 @@
 21. Probability-field data are never thresholded, offset, epsilon-shifted, or masked for visual effect. Only the region outside the physical BS cell may be masked.
 22. Publication probability-field PDFs use vector `contourf` with levels spanning exactly `[0, 1]` and a custom colormap mapping `P=0` to pure white and `P=1` to dark red.
 
-23. Scientific tasks are numbered 01-09 only. Preview, plotting, status, and orchestration scripts are unnumbered utilities.
-24. Each numbered task saves its standard PNG and vector-PDF figures automatically by default; plotting utilities exist only for regeneration from saved results.
+23. Scientific tasks are numbered 01-09 only. Only numbered task scripts are provided; regeneration uses their `--figures-only` option.
+24. Each numbered task saves its standard vector-PDF figures automatically by default; PNG is optional; `--figures-only` regenerates figures from saved results without computation.
+
+25. Task 02 saves spatial figures for every tuning and evaluation realization with dataset split, zero-based realization number, and active MTD count; the full experiment configuration is `configs/experiment.yaml`, with version-controlled outputs in `results/experiment/`.
+
+26. Each task owns a uniquely numbered output folder, with figures inside it. Activity data and figures distinguish tuning/evaluation subfolders; Tasks 05–06 figures use tuning and Tasks 07–09 figures use evaluation.
+
+27. Task 01 is named kappa calibration: `scripts/01_calibrate_kappa.py` writes to `01_kappa_calibration/`; its calibration procedure is unchanged.
+
+28. With `activity.kappa_source: calibration`, Task 02 automatically uses the compatible Task-01 selected kappa, prints and records its provenance, and saves the effective run config. Missing/mismatched calibration is an error; configured mode remains explicit and seeds are unchanged.
+
+29. Task 01 uses an ascending broad kappa scan, bracket refinement ending at configured 0.005 spacing, and identical calibration geometries across stages. Independent deterministic validation reports expected-mean uncertainty and target gap without retuning. Candidate ranges, refinement steps, tolerance, and validation seed offset are explicit configuration; unbracketed calibration is a saved failure.
+
+30. Both supplied configs use automatic Task-01 calibration and omit fixed kappa values; calibration reports only the selected value. Replotting uses saved Task-02 kappa, and fresh previews resolve the calibrated value unless explicitly overridden.
+
+31. `configs/experiment.yaml` is the sole user-facing configuration and all scripts default to it. A small test fixture is retained under `tests/fixtures/small_experiment.yaml` for fast verification.
+
+32. All numbered tasks save local effective config.yaml and environment manifest.json. Task 01 records overrides and selected kappa; downstream snapshots retain activity-data kappa and runtime estimator selections. Root snapshots belong to Task 02, and input configs remain unchanged. Snapshots are created by actual runs, never fabricated for historical results.
+
+33. Remove standalone utility scripts; each numbered task supports --figures-only, retaining regeneration from saved data without rewriting task configurations or rerunning experiments.
+
+34. All numbered scripts are import-safe wrappers around a shared task CLI registry. Every task's computation is a pipeline stage; plotting is orchestrated after saved outputs. Task 01 follows the same structure, with no changes to its calibration mathematics, seeds, candidate grids, or saved result definitions.
+
+35. Consolidate generated YAML to one root config.yaml per run. Exact task configs are retained in JSON manifests under configuration; Task 02 owns the root snapshot after activity generation. Figure dimensions and typography are defined inside plotting functions, not experimental YAML. This supersedes per-task YAML and YAML font overrides.
+
+36. Use six explicit, distinctly named seeds under seeds: kappa_calibration, kappa_validation, activity_tuning, activity_evaluation, communication_tuning, and communication_evaluation. Remove base-seed offsets. Preserve five existing effective streams; change communication tuning from 20260817 to 20260818 as requested to make all six seeds distinct. Existing results remain historical; communication tuning and dependent results must be regenerated. Calibration means selecting kappa to match the target expected active MTD count; validation independently checks the selected kappa.
+
+37. At the user's request, simplify the six explicit seeds to 1 through 6 in configuration order: kappa calibration, kappa validation, activity tuning, activity evaluation, communication tuning, communication evaluation. This supersedes the numerical values in decision 36 and changes all streams; regenerate the experiment starting with Task 01. Historical results are not rewritten.
+
+38. Replace seeds 1–6 with distinct four-digit values at the user's request: kappa_calibration=1379, kappa_validation=8641, activity_tuning=2953, activity_evaluation=7069, communication_tuning=4283, communication_evaluation=9517. This supersedes decision 37 seed values; regenerate from Task 01 and preserve historical result provenance.
+
+39. Add a separate presentation-only configs/paper_figures.yaml for selected Task 02 publication exports via --figures-only --paper-config. Export title-free PDFs with configurable typography and dimensions to a separate destination. Standard Task 02 exports remain unchanged; reuse saved activity and recorded model parameters without computation or snapshot writes.
+
+40. Supersede decision 39's separate paper YAML and task CLI option: scripts/paper_activity_figures.py exports selected saved Task 02 realizations using the existing experiment config. Define publication font sizes and dimensions locally inside plot_paper_activity_figures, in the same style as task plot functions. Keep title-free PDFs and independent output folders; normal task plots remain unchanged.
+
+41. Simplify Tasks 01–02 without changing their scientific outcomes: reuse normalized calibration settings, generate/save tuning and evaluation through one split loop, and resolve common activity plot options once per export. Keep standard and paper typography local and independent. Remove inactive max_attempts from supplied variable-activity configurations; preserve its default and explicit support for exact-sparsity runs. Preserve existing user-edited paper dimensions and fonts, saved paths, titles, probability values, and seeds.
+
+42. At the user's request, numbered tasks always run their stage and automatically save standard PNG figures for repository viewing. Remove --figures-only and --figures format switches; standard plotting defaults are PNG. Keep the dedicated paper_activity_figures.py export as vector PDF with code-local typography and no separate configuration. Existing saved files are not deleted.
+
+43. Keep only --config and --no-progress (and standard help) across all scripts. Remove calibration, activity split/field, worker, and paper selection CLI overrides and the unused override-copy helper. Paper selections stay editable in the plotting function. Tasks 05 and 07 use their existing single-worker default; keep their internal worker support for library callers. Remove obsolete unreferenced run_all and make_figures orchestrators. Preserve scientific configurations, random streams, standard PNG output, and paper PDF styling.
+
+44. Organize source modules by responsibility: models contains activity, communication, realizations, and correlation; experiments contains calibration, tuning, and the pipeline; figures separates activity/paper plots, diagnostics, and common rendering. Keep algorithms and shared infrastructure in their existing roles. Update all imports and documented paths without compatibility facades or changes to equations, seeds, saved data, task commands, or figure styling.
+
+45. Make figure modules navigable by task and plotted quantity: task01_kappa_calibration, task02_activity_realizations, task02_active_mtd_count_distribution, task03_communication_preview, task04_spatial_correlation, task05_alpha_beta_tuning, task06_activity_threshold_tuning, task07_gamma_distribution, task08_convergence, task09_performance, and paper_activity_realizations. Keep only shared rendering in common.py; remove the broad activity.py and diagnostics.py modules. Move plotting functions unchanged and update imports; keep all styles and output filenames unchanged.
+
+46. Keep paper scripts under scripts/paper_figures/. The activity_realization.py paper script exports exactly one title-free PDF, selected by required --split tuning|evaluation and zero-based --index, with optional --config. Replace the batch paper export with plot_paper_activity_figure; preserve publication typography, saved-model parameters, and output paths. Numbered-task CLI options remain unchanged.
+
+47. Name the single paper activity PDF event_driven_activation_model_[split]_[index].pdf, using the split name and unpadded zero-based index. Preserve its tuning/evaluation output subfolder.
+
+48. Use four-digit index padding for paper activity PDF filenames, e.g. event_driven_activation_model_evaluation_0005.pdf. This supersedes decision 47's unpadded index.

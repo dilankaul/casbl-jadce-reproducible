@@ -1,5 +1,5 @@
 import numpy as np
-from casbl_jadce.activity_model import event_activation_probabilities, generate_activity_sample
+from casbl_jadce.models.activity import event_activation_probabilities, generate_activity_sample
 
 
 def test_event_probability_is_zero_beyond_D():

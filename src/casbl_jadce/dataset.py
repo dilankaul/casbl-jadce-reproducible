@@ -1,8 +1,8 @@
 from __future__ import annotations
 from pathlib import Path
 import numpy as np
-from .activity_model import ActivitySample
-from .io import ensure_dir
+from casbl_jadce.models.activity import ActivitySample
+from casbl_jadce.io import ensure_dir
 
 
 def save_activity_samples(path: str | Path, samples: list[ActivitySample]) -> None:
@@ -18,15 +18,21 @@ def save_activity_samples(path: str | Path, samples: list[ActivitySample]) -> No
 
 
 def load_activity_samples(path: str | Path) -> list[ActivitySample]:
-    data = np.load(path)
-    attempts = data["attempts"] if "attempts" in data.files else np.ones(data["a"].shape[0], dtype=int)
+    # NPZ members are decompressed on every lookup, so read each array once.
+    # Close the archive before constructing per-realization views.
+    with np.load(path) as data:
+        a = data["a"].astype(bool)
+        device_locations = data["device_locations"]
+        event_locations = data["event_locations"]
+        activation_probabilities = data["activation_probabilities"]
+        attempts = data["attempts"] if "attempts" in data.files else np.ones(a.shape[0], dtype=int)
     return [
         ActivitySample(
-            a=data["a"][i].astype(bool),
-            device_locations=data["device_locations"][i],
-            event_locations=data["event_locations"][i],
-            activation_probabilities=data["activation_probabilities"][i],
+            a=a[i],
+            device_locations=device_locations[i],
+            event_locations=event_locations[i],
+            activation_probabilities=activation_probabilities[i],
             attempts=int(attempts[i]),
         )
-        for i in range(data["a"].shape[0])
+        for i in range(a.shape[0])
     ]

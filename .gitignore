@@ -11,9 +11,7 @@ build/
 dist/
 *.egg-info/
 
-# Generated artifacts can be committed deliberately after a completed run.
-results/*
-!results/README.md
+# Saved experiment results and figures are versioned for reproducibility.
 figures/*
 !figures/README.md
 data/generated/*

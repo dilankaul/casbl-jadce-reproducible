@@ -1,1 +1,1 @@
-Generated result folders appear here. They are ignored by default so large runs are not committed accidentally.
+Saved experiment outputs are versioned in Git. `experiment/` contains experiment data, summaries, configuration snapshots, and task figures, generated with `configs/experiment.yaml`.

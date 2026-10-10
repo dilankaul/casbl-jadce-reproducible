@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from casbl_jadce.paths import result_path, figure_path
 from typing import Any, Iterable
 
 
@@ -24,15 +25,15 @@ def report_task(output_dir: str | Path, task: int) -> None:
     """Print saved analysis artifacts for a completed scientific task (01-09)."""
     out = Path(output_dir)
     files = {
-        1: out / "activity_calibration" / "summary.json",
-        2: out / "activity" / "summary.json",
-        3: out / "communication" / "summary.json",
-        4: out / "correlation" / "summary.json",
-        5: out / "tuning" / "alpha_beta_summary.json",
-        6: out / "tuning" / "selected.json",
-        7: out / "evaluation" / "run_summary.json",
-        8: out / "convergence" / "summary.json",
-        9: out / "evaluation" / "summary.json",
+        1: result_path(out, "activity_calibration", "summary.json"),
+        2: result_path(out, "activity", "summary.json"),
+        3: result_path(out, "communication", "summary.json"),
+        4: result_path(out, "correlation", "summary.json"),
+        5: result_path(out, "tuning", "alpha_beta_summary.json"),
+        6: result_path(out, "tuning", "selected.json"),
+        7: result_path(out, "evaluation", "run_summary.json"),
+        8: result_path(out, "convergence", "summary.json"),
+        9: result_path(out, "evaluation", "summary.json"),
     }
     if task not in files:
         raise ValueError("task must be an integer from 1 through 9")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
-from .posterior import posterior_mmv
+from casbl_jadce.algorithms.posterior import posterior_mmv
 
 
 @dataclass(frozen=True)

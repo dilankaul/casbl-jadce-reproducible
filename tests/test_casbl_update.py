@@ -1,7 +1,7 @@
 import numpy as np
 from casbl_jadce.algorithms.casbl import stable_gamma_update, casbl
 from casbl_jadce.algorithms.sbl import sbl
-from casbl_jadce.system_model import simulate_communication
+from casbl_jadce.models.communication import simulate_communication
 
 
 def test_stable_root_matches_direct_root():

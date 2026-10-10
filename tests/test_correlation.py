@@ -1,5 +1,5 @@
 import numpy as np
-from casbl_jadce.correlation import build_C, build_Omega, interaction_phi
+from casbl_jadce.models.correlation import build_C, build_Omega, interaction_phi
 
 
 def test_omega_and_fast_phi_match_explicit_expression():

@@ -1,8 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
-from ..correlation import build_Omega, interaction_phi
-from .posterior import posterior_mmv
+from casbl_jadce.models.correlation import build_Omega, interaction_phi
+from casbl_jadce.algorithms.posterior import posterior_mmv
 
 
 @dataclass(frozen=True)
